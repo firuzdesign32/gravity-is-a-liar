@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+  <meta name="theme-color" content="#0b0f20" />
+  <meta name="description" content="Gravity Is a Liar — a platformer where gravity flips when you blink. Play with webcam, keyboard, gamepad or touch, solo or with up to 4 players." />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" href="./icon-192.png" />
+  <link rel="apple-touch-icon" href="./icon-192.png" />
+  <title>Gravity Is a Liar</title>
+  <link rel="stylesheet" href="./src/style.css" />
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <!-- HUD -->
+  <div id="hud" class="hidden">
+    <div class="hud-left">
+      <div id="hudLevel">Level 1</div>
+      <div id="hudPlayers"></div>
+    </div>
+    <div class="hud-right">
+      <span id="hudTime">0.0s</span>
+      <span id="hudDeaths">☠ 0</span>
+      <button id="btnPause" class="icon-btn" aria-label="Pause">❚❚</button>
+    </div>
+    <div id="hudBoss" class="hidden"><div class="boss-name">THE GRAND LIAR</div><div class="boss-bar"><div id="hudBossFill"></div></div></div>
+    <div id="hudCountdown" class="hidden"></div>
+  </div>
+
+  <div id="camBox" class="hidden">
+    <video id="camVideo" playsinline muted></video>
+    <div class="meter"><div id="camFill"></div><div id="camThr"></div></div>
+  </div>
+
+  <div id="touch" class="hidden">
+    <div class="touch-left">
+      <button data-t="left" aria-label="Left">◀</button>
+      <button data-t="right" aria-label="Right">▶</button>
+    </div>
+    <button data-t="flip" class="touch-flip" aria-label="Flip gravity">⇅</button>
+  </div>
+
+  <div id="toast" class="hidden"></div>
+  <div id="rotate" class="hidden">↻ Rotate your device to landscape for the best view</div>
+
+  <!-- SCREENS -->
+  <div id="ui">
+    <section id="s-title" class="screen">
+      <h1 class="logo">GRAVITY<br><span>IS A LIAR</span></h1>
+      <p class="tag">Blink to flip gravity. Or just press a key. Either way, gravity lies.</p>
+      <div class="menu">
+        <button class="btn primary" data-go="solo">▶ Play Solo</button>
+        <button class="btn" data-go="local">👥 Local Multiplayer (1–4)</button>
+        <button class="btn" data-go="online">🌐 Online Multiplayer</button>
+        <button class="btn" data-go="howto">❓ How to Play</button>
+        <button class="btn" data-go="settings">⚙ Settings</button>
+      </div>
+      <div class="foot">
+        <button id="btnInstall" class="link hidden">⬇ Install app</button>
+        <a id="lnkWin" class="link" href="https://github.com/firuzdesign32/gravity-is-a-liar/releases/latest" target="_blank" rel="noopener">🪟 Download for Windows (.exe)</a>
+      </div>
+    </section>
+
+    <section id="s-control" class="screen hidden">
+      <h2>How do you want to flip gravity?</h2>
+      <div class="cards">
+        <button class="card" data-control="keys">
+          <div class="big">⌨️ 🎮 👆</div>
+          <b>Keyboard / Gamepad / Touch</b>
+          <span>No camera needed. Works everywhere.</span>
+        </button>
+        <button class="card" data-control="blink">
+          <div class="big">👁️ + ⌨️</div>
+          <b>Webcam Blink + Keyboard</b>
+          <span>Blink to flip. Keys still work too.</span>
+        </button>
+      </div>
+      <button class="btn small" data-back>← Back</button>
+    </section>
+
+    <section id="s-calib" class="screen hidden">
+      <h2>Blink Calibration</h2>
+      <p id="calibMsg">Allow camera access, look at the screen and keep your eyes open…</p>
+      <div class="calib-box">
+        <video id="calibVideo" playsinline muted></video>
+        <div class="meter wide"><div id="calibFill"></div><div id="calibThr"></div></div>
+        <div class="progress"><div id="calibProg"></div></div>
+      </div>
+      <p id="calibTest" class="hidden">Now blink! Blinks detected: <b id="blinkCount">0</b></p>
+      <div class="row">
+        <button class="btn" id="btnCalibRetry">↺ Recalibrate</button>
+        <button class="btn primary hidden" id="btnCalibGo">Continue ▶</button>
+        <button class="btn small" id="btnCalibSkip">Use keyboard only</button>
+      </div>
+    </section>
+
+    <section id="s-levels" class="screen hidden">
+      <h2 id="levelsTitle">Select Level</h2>
+      <div id="levelGrid" class="grid"></div>
+      <button class="btn small" data-back>← Back</button>
+    </section>
+
+    <section id="s-local" class="screen hidden">
+      <h2>Local Multiplayer</h2>
+      <p>Everyone plays on this device. First to the portal wins the round!</p>
+      <div class="row" id="localCount">
+        <button class="btn pick" data-n="1">1</button>
+        <button class="btn pick" data-n="2">2</button>
+        <button class="btn pick" data-n="3">3</button>
+        <button class="btn pick" data-n="4">4</button>
+      </div>
+      <div id="localKeys" class="pkeys"></div>
+      <p class="note">🎮 Gamepads are assigned automatically (pad 1 → P1, pad 2 → P2 …). Change keys in Settings.</p>
+      <div class="row">
+        <button class="btn small" data-back>← Back</button>
+        <button class="btn primary" id="btnLocalGo">Continue ▶</button>
+      </div>
+    </section>
+
+    <section id="s-online" class="screen hidden">
+      <h2>Online Multiplayer</h2>
+      <p>Play with up to 3 friends on other devices. One player hosts and shares the room code.</p>
+      <label class="field">Your name <input id="netName" maxlength="12" placeholder="Player" /></label>
+      <div class="cards">
+        <div class="card">
+          <b>Host a room</b>
+          <span>Get a code to share with friends.</span>
+          <button class="btn primary" id="btnHost">Create Room</button>
+        </div>
+        <div class="card">
+          <b>Join a room</b>
+          <input id="joinCode" maxlength="5" placeholder="CODE" autocapitalize="characters" />
+          <button class="btn primary" id="btnJoin">Join</button>
+        </div>
+      </div>
+      <p id="netMsg" class="note"></p>
+      <button class="btn small" data-back>← Back</button>
+    </section>
+
+    <section id="s-lobby" class="screen hidden">
+      <h2>Room <span id="lobbyCode" class="code">-----</span></h2>
+      <p id="lobbyInfo"></p>
+      <ul id="lobbyList" class="lobby"></ul>
+      <div class="row">
+        <button class="btn small" id="btnLeave">✕ Leave</button>
+        <button class="btn" id="btnLobbyCam">👁️ Webcam: Off</button>
+        <button class="btn primary hidden" id="btnLobbyStart">Choose Level ▶</button>
+      </div>
+    </section>
+
+    <section id="s-howto" class="screen hidden scroll">
+      <h2>How to Play</h2>
+      <div class="howto">
+        <div class="hcard"><h3>🎯 Goal</h3><p>Reach the swirling <b>portal</b> at the end of each level. There are <b>15 levels</b>, each harder than the last, ending with the <b>final boss</b>.</p></div>
+        <div class="hcard"><h3>🔄 Flip gravity</h3><p><b>Blink</b> (webcam mode) or press your <b>Flip</b> key to swap between walking on the floor and the ceiling. You can only flip while standing on a surface, so plan ahead!</p></div>
+        <div class="hcard"><h3>⌨️ Controls</h3><div id="howtoKeys"></div></div>
+        <div class="hcard"><h3>🎮 Gamepad & 👆 Touch</h3><p>Gamepad: stick / D-pad to move, any face button or bumper to flip, Start to pause.<br>Phones & tablets: ◀ ▶ buttons on the left, big ⇅ button on the right.</p></div>
+        <div class="hcard"><h3>👁️ Webcam tips</h3><p>Good front light, face the camera, about an arm's length away. Calibrate with eyes open. If blinks are missed, raise <b>Blink sensitivity</b> in Settings; if it flips by itself, lower it. Keyboard works at the same time.</p></div>
+        <div class="hcard"><h3>☠ Hazards</h3>
+          <ul class="legend">
+            <li><i class="lg spike"></i> Spikes — don't touch</li>
+            <li><i class="lg saw"></i> Saws — some move</li>
+            <li><i class="lg pit"></i> Pits — falling out = death</li>
+            <li><i class="lg crumble"></i> Cracked blocks — break after 0.5s</li>
+            <li><i class="lg noflip"></i> Purple zone — you can't flip inside</li>
+            <li><i class="lg laser"></i> Lasers — flicker before turning on</li>
+            <li><i class="lg void"></i> The Void — chases you, keep moving</li>
+            <li><i class="lg liar"></i> Liar Mode — screen flashes pink, then gravity flips by itself</li>
+          </ul></div>
+        <div class="hcard"><h3>👹 Final boss</h3><p>The Grand Liar fires rings of bullets. Touch the <b>glowing yellow orbs</b> (6 total) to hurt it. Every 2 hits it gets angrier: saws, then lasers, then Liar Mode.</p></div>
+        <div class="hcard"><h3>👥 Multiplayer</h3><p><b>Local:</b> 1–4 players on one device with separate keys or gamepads.<br><b>Online:</b> host a room, share the 5-letter code, friends join from any device.<br>Checkpoints are shared. First to the portal wins the round; others get 5 seconds to finish. Players who fall far behind are pulled to the leader.</p></div>
+      </div>
+      <button class="btn small" data-back>← Back</button>
+    </section>
+
+    <section id="s-settings" class="screen hidden scroll">
+      <h2>Settings</h2>
+      <div class="tabs"><button class="tab active" data-tab="controls">Controls</button><button class="tab" data-tab="game">Game</button></div>
+      <div id="tab-controls" class="tabpane">
+        <p class="note">Click a key to change it, then press the new key. <b>Esc</b> clears it.</p>
+        <div class="table-wrap"><table id="bindTable"></table></div>
+        <button class="btn small" id="btnResetKeys">Reset to defaults</button>
+      </div>
+      <div id="tab-game" class="tabpane hidden">
+        <label class="field">Volume <input type="range" id="setVolume" min="0" max="1" step="0.05" /></label>
+        <label class="field">Screen shake <input type="checkbox" id="setShake" /></label>
+        <label class="field">Graphics quality
+          <select id="setQuality"><option value="auto">Auto</option><option value="high">High</option><option value="low">Low (faster)</option></select></label>
+        <label class="field">Touch controls
+          <select id="setTouch"><option value="auto">Auto</option><option value="on">Always on</option><option value="off">Off</option></select></label>
+        <label class="field">Webcam controls player
+          <select id="setBlinkPlayer"><option value="0">Player 1</option><option value="1">Player 2</option><option value="2">Player 3</option><option value="3">Player 4</option></select></label>
+        <label class="field">Blink sensitivity <input type="range" id="setSens" min="0.55" max="0.9" step="0.01" /> <span id="sensVal"></span></label>
+        <label class="field">Show webcam preview <input type="checkbox" id="setShowCam" /></label>
+        <button class="btn small" id="btnResetProgress">Reset level progress</button>
+      </div>
+      <button class="btn small" data-back>← Back</button>
+    </section>
+
+    <section id="s-pause" class="screen hidden">
+      <h2>Paused</h2>
+      <div class="menu">
+        <button class="btn primary" id="btnResume">▶ Resume</button>
+        <button class="btn" id="btnRestart">↺ Restart level</button>
+        <button class="btn" id="btnPauseSettings">⚙ Settings</button>
+        <button class="btn" id="btnPauseLevels">☰ Level select</button>
+        <button class="btn" id="btnQuit">⏏ Quit to title</button>
+      </div>
+    </section>
+
+    <section id="s-complete" class="screen hidden">
+      <h2 id="completeTitle">Level Complete!</h2>
+      <div id="completeStats" class="stats"></div>
+      <div class="row">
+        <button class="btn" id="btnRetry">↺ Retry</button>
+        <button class="btn" id="btnCompLevels">☰ Levels</button>
+        <button class="btn primary" id="btnNext">Next ▶</button>
+      </div>
+      <p id="completeWait" class="note hidden">Waiting for the host…</p>
+    </section>
+
+    <section id="s-final" class="screen hidden">
+      <h1 class="logo small">YOU BEAT<br><span>THE LIAR</span></h1>
+      <div id="finalStats" class="stats"></div>
+      <div class="row"><button class="btn primary" id="btnFinalHome">Back to title</button></div>
+    </section>
+  </div>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
