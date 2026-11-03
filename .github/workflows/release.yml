@@ -1,8 +1,12 @@
 name: Build Windows installer (.exe)
 
+# Runs on every push to main that touches the game; the release tag is v<version from tauri.conf.json>.
+# Bump "version" in src-tauri/tauri.conf.json (and package.json) to publish a new release.
 on:
   push:
+    branches: [main]
     tags: ['v*']
+    paths: ['src/**', 'src-tauri/**', 'index.html', 'public/**', 'package.json', 'package-lock.json', '.github/workflows/release.yml']
   workflow_dispatch:
 
 permissions:
@@ -26,7 +30,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ github.ref_type == 'tag' && github.ref_name || 'v__VERSION__' }}
+          tagName: v__VERSION__
           releaseName: 'Gravity Is a Liar v__VERSION__'
           releaseBody: |
             ## Install on Windows
